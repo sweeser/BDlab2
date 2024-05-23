@@ -1,57 +1,97 @@
--- Creation of a test base...
+-- Создание базы данных
+CREATE DATABASE IF NOT EXISTS Observatory;
+USE Observatory;
 
-CCREATE DATABASE ElectricBank;
-USE ElectricBank;
-
-CREATE TABLE Borrowers (
-    borrowerId INT PRIMARY KEY AUTO_INCREMENT,
-    inn VARCHAR(20),
-    isCompany BOOLEAN,
-    address TEXT,
-    amount DECIMAL(15,2),
-    terms TEXT,
-    legalNotes TEXT,
-    contractList TEXT
+-- Создание таблицы Сектор
+CREATE TABLE IF NOT EXISTS Sector (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    coordinates VARCHAR(255),
+    light_intensity FLOAT,
+    foreign_objects INT,
+    star_objects_count INT,
+    unknown_objects_count INT,
+    defined_objects_count INT,
+    notes TEXT
 );
 
-CREATE TABLE Individuals (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    borrowerId INT,
-    firstName VARCHAR(50),
-    lastName VARCHAR(50),
-    middleName VARCHAR(50),
-    passport VARCHAR(20),
-    inn VARCHAR(20),
-    snils VARCHAR(20),
-    driversLicense VARCHAR(20),
-    additionalDocuments TEXT,
-    notes TEXT,
-    FOREIGN KEY (borrowerId) REFERENCES Borrowers(borrowerId)
+-- Создание таблицы Объекты
+CREATE TABLE IF NOT EXISTS Objects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(255),
+    accuracy FLOAT,
+    quantity INT,
+    time TIME,
+    date DATE,
+    notes TEXT
 );
 
-CREATE TABLE Loans (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    borrowerId INT,
-    individualId INT,
-    amount DECIMAL(15,2),
-    interestRate DECIMAL(5,2),
-    duration INT,
-    terms TEXT,
-    notes TEXT,
-    FOREIGN KEY (individualId) REFERENCES Individuals(id),
-    FOREIGN KEY (borrowerId) REFERENCES Borrowers(borrowerId)
+-- Создание таблицы ЕстественныеОбъекты
+CREATE TABLE IF NOT EXISTS NaturalObjects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(255),
+    galaxy VARCHAR(255),
+    accuracy FLOAT,
+    light_flow FLOAT,
+    associated_objects VARCHAR(255),
+    notes TEXT
 );
 
-CREATE TABLE CompanyLoans (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    borrowerId INT,
-    companyId INT,
-    individualId INT,
-    amount DECIMAL(15,2),
-    duration INT,
-    interestRate DECIMAL(5,2),
-    terms TEXT,
-    notes TEXT,
-    FOREIGN KEY (individualId) REFERENCES Individuals(id),
-    FOREIGN KEY (borrowerId) REFERENCES Borrowers(borrowerId)
+-- Создание таблицы Положение
+CREATE TABLE IF NOT EXISTS `Position` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    earth_position VARCHAR(255),
+    sun_position VARCHAR(255),
+    moon_position VARCHAR(255)
 );
+
+-- Создание таблицы Наблюдение
+CREATE TABLE IF NOT EXISTS Observation (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sector_id INT,
+    object_id INT,
+    natural_object_id INT,
+    position_id INT,
+    FOREIGN KEY (sector_id) REFERENCES Sector(id),
+    FOREIGN KEY (object_id) REFERENCES Objects(id),
+    FOREIGN KEY (natural_object_id) REFERENCES NaturalObjects(id),
+    FOREIGN KEY (position_id) REFERENCES `Position`(id)
+);
+
+DELIMITER //
+
+CREATE TRIGGER UpdateObjects
+AFTER UPDATE ON Objects
+FOR EACH ROW
+BEGIN
+    DECLARE column_exists INT DEFAULT 0;
+    
+    -- Проверка наличия столбца date_update
+    SELECT COUNT(*) INTO column_exists
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Objects' AND COLUMN_NAME = 'date_update';
+
+    -- Добавление столбца, если он отсутствует
+    IF column_exists = 0 THEN
+        SET @alter_sql = 'ALTER TABLE Objects ADD COLUMN date_update TIMESTAMP';
+        PREPARE stmt FROM @alter_sql;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+
+    -- Обновление значения date_update текущей датой и временем
+    SET NEW.date_update = NOW();
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE JoinTables(IN table1 VARCHAR(255), IN table2 VARCHAR(255))
+BEGIN
+    SET @sql = CONCAT('SELECT * FROM ', table1, ' t1 JOIN ', table2, ' t2 ON t1.id = t2.id');
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END //
+
+DELIMITER ;
